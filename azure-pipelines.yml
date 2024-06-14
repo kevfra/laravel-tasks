@@ -1,0 +1,68 @@
+# PHP
+# Test and package your PHP project.
+# Add steps that run tests, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/php
+
+trigger:
+  - main
+
+# schedules:
+#   - cron: "00 04 * * *"
+#     displayName: Daily midnight trigger
+#     branches:
+#       include:
+#         - master
+#     always: true
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  phpVersion: 8.1
+
+steps:
+  - script: |
+      sudo update-alternatives --set php /usr/bin/php$(phpVersion)
+      sudo update-alternatives --set phar /usr/bin/phar$(phpVersion)
+      sudo update-alternatives --set phpdbg /usr/bin/phpdbg$(phpVersion)
+      sudo update-alternatives --set php-cgi /usr/bin/php-cgi$(phpVersion)
+      sudo update-alternatives --set phar.phar /usr/bin/phar.phar$(phpVersion)
+      php -version
+    displayName: "Use PHP version $(phpVersion)"
+
+  - script: |
+      sudo composer self-update
+      composer install --no-interaction --prefer-dist --no-suggest
+      composer --version
+    displayName: "Installing Package Dependencies"
+
+  - script: |
+      curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+      sudo apt-get install -y build-essential debconf-utils screen nodejs mysql-server google-chrome-stable
+      sudo apt-get install -y unzip xvfb autogen autoconf libtool pkg-config nasm
+      node -v
+    displayName: "Installing System Dependencies"
+
+  - script: |
+      sudo npm i -g npm
+      sudo chown -R vsts:vsts ~/.npm
+      sudo chown -R vsts:vsts ~/.config
+      npm install
+      npm run prod
+      npm -v
+    displayName: "Generating build assets"
+
+  - task: ArchiveFiles@1
+    displayName: Archive files
+    inputs:
+      rootFolder: $(System.DefaultWorkingDirectory)
+      includeRootFolder: false
+      archiveType: zip
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathtoPublish: "$(Build.ArtifactStagingDirectory)"
+      artifactName: "drop"
+  # - script: |
+  #     php artisan listings:update
+  #   displayName: "Update job listings"
